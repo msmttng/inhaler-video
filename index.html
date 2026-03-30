@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>吸入指導ガイド</title>
+    <title>吸入・点鼻指導ガイド</title>
     <!-- Google Fonts のみ外部依存可の要件 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -226,7 +226,7 @@
 </head>
 <body>
 
-<header>吸入指導ガイド</header>
+<header>吸入・点鼻指導ガイド</header>
 
 <div class="container">
     <div class="breadcrumbs" id="breadcrumbs"></div>
@@ -361,6 +361,33 @@ const inhalerData = [
         videos: [
             { title: "ホー吸入 Ver.3", path: "https://jasweb.or.jp/video/movie/HowToHoh_2023_JP_edit04_nouhin.mp4" }
         ]
+    },
+    {
+        id: "nasonex",
+        name: "ナゾネックス点鼻液",
+        drugs: "モメタゾン点鼻液",
+        img: "images/nasonex.png",
+        videos: [
+            { title: "使い方の手順", path: "https://www.kyorin-pharm.co.jp/ethical/v/nasonex/nasonex_instruction_mv.mp4" }
+        ]
+    },
+    {
+        id: "allermist",
+        name: "アラミスト点鼻液",
+        drugs: "フルチカゾンフランカルボン酸点鼻",
+        img: "images/allermist.png",
+        videos: [
+            { title: "使い方の手順", path: "https://videos.gskstatic.com/pharma/Health/Japan/allermist/detail/allermist_for-users.mp4" }
+        ]
+    },
+    {
+        id: "erizas",
+        name: "エリザス点鼻粉末",
+        drugs: "エリザス",
+        img: "images/erizas.png",
+        videos: [
+            { title: "使い方の手順<br>（音声なし）", path: "erizas.mp4" }
+        ]
     }
 ];
 
@@ -435,6 +462,11 @@ function selectDevice(device) {
 
 // ---------- Step 3: 動画再生に進む ----------
 function selectVideo(video) {
+    if (!video.path.toLowerCase().endsWith('.mp4')) {
+        window.open(video.path, '_blank', 'noopener,noreferrer');
+        return;
+    }
+
     currentVideo = video;
     
     // エラーメッセージをリセット
@@ -511,7 +543,7 @@ function updateContext(state) {
     let bcHTML = '';
     
     if (state === 'top') {
-        bcHTML = `<span>トップ (吸入器を選ぶ)</span>`;
+        bcHTML = `<span>トップ (吸入器・点鼻薬を選ぶ)</span>`;
     } 
     else if (state === 'device') {
         bcHTML = `
