@@ -104,11 +104,13 @@
             min-height: 160px; /* タッチ領域 60px以上を大きくクリア */
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             text-align: center;
             border: 4px solid transparent;
             transition: all 0.2s ease;
+            height: 100%;
+            box-sizing: border-box;
         }
 
         .card:active {
@@ -117,21 +119,41 @@
             background: #f8fdff;
         }
 
+        /* 画像・アイコンの高さ固定ラッパー */
+        .card-img-wrapper {
+            height: 140px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
         .card-icon {
             fill: var(--primary-color);
-            margin-bottom: 20px;
+            width: 80px;
+            height: 80px;
         }
 
         .device-image {
-            width: 140px;
-            height: 140px;
+            max-width: 140px;
+            max-height: 140px;
             object-fit: contain;
-            margin-bottom: 16px;
+        }
+
+        /* タイトルの高さ固定ラッパー (最大2行) */
+        .card-title-wrapper {
+            height: 76px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
         }
 
         .card h2 {
-            margin: 0 0 16px 0;
-            font-size: 28px;
+            margin: 0;
+            font-size: 26px;
             color: var(--primary-dark);
             line-height: 1.4;
         }
@@ -449,8 +471,12 @@ function renderDevices() {
         
         // 画像読み込みエラー時には window.fallbackSVG を利用して十字アイコンを表示する
         card.innerHTML = `
-            <img src="${device.img}" class="device-image" alt="${device.name}" onerror="this.outerHTML=window.fallbackSVG" />
-            <h2>${device.name}</h2>
+            <div class="card-img-wrapper">
+                <img src="${device.img}" class="device-image" alt="${device.name}" onerror="this.outerHTML=window.fallbackSVG" />
+            </div>
+            <div class="card-title-wrapper">
+                <h2>${device.name}</h2>
+            </div>
             <p class="drugs">${device.drugs}</p>
         `;
         deviceList.appendChild(card);
@@ -468,8 +494,12 @@ function selectDevice(device) {
         card.onclick = () => selectVideo(video);
         
         card.innerHTML = `
-            <div class="video-card-icon">▶️</div>
-            <h2>${video.title}</h2>
+            <div class="card-img-wrapper" style="height:auto; min-height:80px">
+                <div class="video-card-icon">▶️</div>
+            </div>
+            <div class="card-title-wrapper" style="height:auto">
+                <h2>${video.title}</h2>
+            </div>
         `;
         videoList.appendChild(card);
     });
