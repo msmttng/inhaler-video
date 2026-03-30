@@ -221,7 +221,26 @@
             color: var(--primary-color);
             margin-bottom: 16px;
         }
+        body.no-images .device-image, 
+        body.no-images .card-icon { 
+            display: none !important; 
+        }
 
+        .toggle-btn {
+            font-size: 16px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .toggle-btn:active {
+            background: var(--primary-color);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -229,7 +248,10 @@
 <header>吸入・点鼻指導ガイド</header>
 
 <div class="container">
-    <div class="breadcrumbs" id="breadcrumbs"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
+        <div class="breadcrumbs" id="breadcrumbs" style="margin-bottom: 0;"></div>
+        <button id="toggleImgBtn" class="toggle-btn" onclick="toggleImages()">画像なし（リスト）表示</button>
+    </div>
 
     <!-- Step 1: デバイス選択画面 -->
     <div id="step1" class="screen active">
@@ -401,6 +423,19 @@ const deviceIconTemplate = `
 // ---------- 状態管理 ----------
 let currentDevice = null;
 let currentVideo = null;
+let showImages = true;
+
+function toggleImages() {
+    showImages = !showImages;
+    const btn = document.getElementById('toggleImgBtn');
+    if (!showImages) {
+        document.body.classList.add('no-images');
+        btn.innerText = '画像あり表示に戻す';
+    } else {
+        document.body.classList.remove('no-images');
+        btn.innerText = '画像なし（リスト）表示';
+    }
+}
 
 // ---------- UI要素の取得 ----------
 const step1 = document.getElementById('step1');
