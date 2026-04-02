@@ -263,6 +263,64 @@
             background: var(--primary-color);
             color: white;
         }
+
+        /* 設定画面用スタイル */
+        .settings-item {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            gap: 24px;
+        }
+        .settings-item-info {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .settings-item-name {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--primary-dark);
+            margin: 0;
+            line-height: 1.4;
+        }
+        .settings-item-img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+        .order-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .order-btn {
+            background-color: var(--bg-color);
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: var(--text-main);
+            transition: all 0.2s;
+            min-width: 100px;
+        }
+        .order-btn:hover:not(:disabled) {
+            background-color: #e0e0e0;
+        }
+        .order-btn:active:not(:disabled) {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .order-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: #eee;
+        }
     </style>
 </head>
 <body>
@@ -272,7 +330,10 @@
 <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px;">
         <div class="breadcrumbs" id="breadcrumbs" style="margin-bottom: 0;"></div>
-        <button id="toggleImgBtn" class="toggle-btn" onclick="toggleImages()">画像なし（リスト）表示</button>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button id="settingsBtn" class="toggle-btn" onclick="goToSettings()">表示順の設定</button>
+            <button id="toggleImgBtn" class="toggle-btn" onclick="toggleImages()">画像なし表示</button>
+        </div>
     </div>
 
     <!-- Step 1: デバイス選択画面 -->
@@ -304,6 +365,22 @@
             <button class="btn" onclick="goBackToStep2()">
                 <svg viewBox="0 0 24 24" width="28" height="28"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
                 もどる
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 4: 設定画面 -->
+    <div id="step4" class="screen">
+        <h2 style="font-size: 28px; margin-bottom: 16px; color: var(--primary-dark);">キットの表示順設定</h2>
+        <p style="font-size: 18px; color: var(--text-sub); margin-bottom: 24px; line-height: 1.6;">「上へ」「下へ」ボタンを使用して、よく使うキットを上に移動させることができます。</p>
+        <div id="settingsList" style="display: flex; flex-direction: column; gap: 16px;">
+        </div>
+        <div class="btn-container" style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-top: 36px;">
+            <button class="btn" onclick="goBackToStep1FromSettings()" style="min-width: 240px; border-color: var(--primary-color);">
+                保存してもどる
+            </button>
+            <button class="btn" onclick="resetSettings()" style="background-color: #fff; border-color: #e53935; color: #b71c1c; min-width: 200px; font-size: 22px;">
+                初期状態に戻す
             </button>
         </div>
     </div>
@@ -429,6 +506,22 @@ const deviceIconTemplate = `
 let currentDevice = null;
 let currentVideo = null;
 let showImages = true;
+let orderConfig = [];
+
+function loadOrder() {
+    const saved = localStorage.getItem('inhaler_device_order');
+    if (saved) {
+        orderConfig = JSON.parse(saved);
+        // 新しいキットが追加されていた場合に補完する
+        inhalerData.forEach(d => {
+            if (!orderConfig.includes(d.id)) {
+                orderConfig.push(d.id);
+            }
+        });
+    } else {
+        orderConfig = inhalerData.map(d => d.id);
+    }
+}
 
 function toggleImages() {
     showImages = !showImages;
@@ -446,6 +539,7 @@ function toggleImages() {
 const step1 = document.getElementById('step1');
 const step2 = document.getElementById('step2');
 const step3 = document.getElementById('step3');
+const step4 = document.getElementById('step4');
 const deviceList = document.getElementById('deviceList');
 const videoList = document.getElementById('videoList');
 const videoPlayer = document.getElementById('videoPlayer');
@@ -454,6 +548,7 @@ const breadcrumbs = document.getElementById('breadcrumbs');
 
 // ---------- 初期化処理 ----------
 function init() {
+    loadOrder();
     renderDevices();
     updateContext('top');
 }
@@ -464,7 +559,16 @@ window.fallbackSVG = deviceIconTemplate;
 function renderDevices() {
     deviceList.innerHTML = '';
     
-    inhalerData.forEach(device => {
+    // カスタム順序に基づいてソート
+    const sortedData = [...inhalerData].sort((a, b) => {
+        let idxA = orderConfig.indexOf(a.id);
+        let idxB = orderConfig.indexOf(b.id);
+        if(idxA === -1) idxA = 999;
+        if(idxB === -1) idxB = 999;
+        return idxA - idxB;
+    });
+
+    sortedData.forEach(device => {
         const card = document.createElement('div');
         card.className = 'card';
         card.onclick = () => selectDevice(device);
@@ -539,7 +643,7 @@ function selectVideo(video) {
 // ---------- ユーティリティ・画面遷移 ----------
 function transitionTo(targetStep) {
     // 全て非表示
-    [step1, step2, step3].forEach(s => {
+    [step1, step2, step3, step4].forEach(s => {
         s.classList.remove('active');
     });
     
@@ -586,6 +690,76 @@ videoPlayer.addEventListener('error', function(e) {
     errorMessage.style.display = 'block';
 });
 
+// ---------- 設定画面ロジック ----------
+function goToSettings() {
+    renderSettings();
+    transitionTo(step4);
+    updateContext('settings');
+}
+
+function renderSettings() {
+    const list = document.getElementById('settingsList');
+    list.innerHTML = '';
+    
+    // 現在のorderConfigに基づいてソート
+    const sortedData = [...inhalerData].sort((a, b) => {
+        let idxA = orderConfig.indexOf(a.id);
+        let idxB = orderConfig.indexOf(b.id);
+        if(idxA === -1) idxA = 999;
+        if(idxB === -1) idxB = 999;
+        return idxA - idxB;
+    });
+
+    sortedData.forEach((device, index) => {
+        const item = document.createElement('div');
+        item.className = 'settings-item';
+        
+        const isFirst = index === 0;
+        const isLast = index === sortedData.length - 1;
+
+        // 画像取得（エラーの場合はインラインSVGを表示しないように代替なしにしているが、Step1に合わせることも可能。ここではシンプルに空に。）
+        item.innerHTML = `
+            <div class="settings-item-info">
+                <img src="${device.img}" class="settings-item-img" onerror="this.src=''" alt="" />
+                <h3 class="settings-item-name">${device.name.replace('<br>', ' ')}</h3>
+            </div>
+            <div class="order-buttons">
+                <button class="order-btn" onclick="moveDevice('${device.id}', -1)" ${isFirst ? 'disabled' : ''}>↑上へ</button>
+                <button class="order-btn" onclick="moveDevice('${device.id}', 1)" ${isLast ? 'disabled' : ''}>↓下へ</button>
+            </div>
+        `;
+        list.appendChild(item);
+    });
+}
+
+function moveDevice(id, direction) {
+    const index = orderConfig.indexOf(id);
+    if (index === -1) return;
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= orderConfig.length) return;
+    
+    // 入れ替え
+    const temp = orderConfig[index];
+    orderConfig[index] = orderConfig[newIndex];
+    orderConfig[newIndex] = temp;
+    
+    renderSettings(); // リストを再描画
+}
+
+function goBackToStep1FromSettings() {
+    localStorage.setItem('inhaler_device_order', JSON.stringify(orderConfig));
+    renderDevices(); // トップ画面を新しい順序で再描画
+    transitionTo(step1);
+    updateContext('top');
+}
+
+function resetSettings() {
+    if(!confirm("設定を初期状態（デフォルトの順番）に戻しますか？")) return;
+    orderConfig = inhalerData.map(d => d.id);
+    localStorage.removeItem('inhaler_device_order');
+    renderSettings();
+}
+
 // パンくずリスト更新
 function updateContext(state) {
     let bcHTML = '';
@@ -607,6 +781,13 @@ function updateContext(state) {
             <span class="clickable" onclick="goBackToStep2()">${currentDevice.name.replace('<br>', ' ')}</span>
             <span class="separator">/</span>
             <span>動画再生</span>
+        `;
+    }
+    else if (state === 'settings') {
+        bcHTML = `
+            <span class="clickable" onclick="goBackToStep1FromSettings()">トップ</span>
+            <span class="separator">/</span>
+            <span>表示順の設定</span>
         `;
     }
     
