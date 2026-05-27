@@ -510,7 +510,7 @@ let showImages = true;
 let orderConfig = [];
 
 function loadOrder() {
-    const saved = localStorage.getItem('inhaler_device_order');
+    const saved = localStorage.getItem('inhaler_device_order_v2');
     if (saved) {
         orderConfig = JSON.parse(saved);
         // 新しいキットが追加されていた場合に補完する
@@ -748,7 +748,7 @@ function moveDevice(id, direction) {
 }
 
 function goBackToStep1FromSettings() {
-    localStorage.setItem('inhaler_device_order', JSON.stringify(orderConfig));
+    localStorage.setItem('inhaler_device_order_v2', JSON.stringify(orderConfig));
     renderDevices(); // トップ画面を新しい順序で再描画
     transitionTo(step1);
     updateContext('top');
@@ -757,7 +757,7 @@ function goBackToStep1FromSettings() {
 function resetSettings() {
     if(!confirm("設定を初期状態（デフォルトの順番）に戻しますか？")) return;
     orderConfig = inhalerData.map(d => d.id);
-    localStorage.removeItem('inhaler_device_order');
+    localStorage.removeItem('inhaler_device_order_v2');
     renderSettings();
 }
 
