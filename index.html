@@ -258,6 +258,39 @@
             border: 3px solid #e53935;
         }
 
+        .loading-notice {
+            display: none;
+            background-color: #e3f2fd;
+            color: var(--primary-dark);
+            padding: 16px 24px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            border: 2px solid var(--primary-color);
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .loading-notice.show {
+            display: flex;
+        }
+        .retry-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .retry-btn:active {
+            opacity: 0.8;
+        }
+
         /* 動画選択用アイコン */
         .video-card-icon {
             font-size: 56px;
@@ -377,9 +410,13 @@
     <!-- Step 3: 動画再生画面 -->
     <div id="step3" class="screen">
         <div id="errorMessage" class="error-message">動画ファイルが見つかりません。</div>
+        <div id="loadingNotice" class="loading-notice">
+            <span>動画を読み込んでいます…</span>
+            <button type="button" class="retry-btn" onclick="retryVideo()">再読み込み</button>
+        </div>
         <div class="video-wrapper">
             <!-- 該当の動画を自動再生し、ネイティブコントロールを表示 -->
-            <video id="videoPlayer" controls playsinline>
+            <video id="videoPlayer" controls playsinline preload="auto">
                 お使いのブラウザは動画の再生に対応していません。
             </video>
         </div>
@@ -409,8 +446,8 @@
 </div>
 
 <script>
-// ---------- データ定義（8デバイス） ----------
-// 出典：一般社団法人 日本喘息学会 公式MP4（https://jasweb.or.jp/video/）
+// ---------- データ定義（11デバイス） ----------
+// 出典：一般社団法人 日本喘息学会 公式MP4（https://jasweb.or.jp/video/）等を軽量化してローカル配置
 const inhalerData = [
     {
         id: "ellipta",
@@ -418,7 +455,7 @@ const inhalerData = [
         drugs: "レルベア・テリルジー<br>アニュイティー、アノーロ他",
         img: "images/ellipta.png",
         videos: [
-            { title: "使い方の手順", path: "https://jasweb.or.jp/video/movie/5_Ellipta_ver2.mp4" }
+            { title: "使い方の手順", path: "videos/ellipta.mp4" }
         ]
     },
     {
@@ -428,7 +465,7 @@ const inhalerData = [
         img: "images/breezhaler.png",
         videos: [
             { title: "さくっと確認", path: "breezhaler_short.mp4", duration: "約3分" },
-            { title: "じっくり確認", path: "https://jasweb.or.jp/video/movie/7_Breezhaler_ver2.mp4", duration: "約5分" }
+            { title: "じっくり確認", path: "videos/breezhaler_long.mp4", duration: "約5分" }
         ]
     },
     {
@@ -437,7 +474,7 @@ const inhalerData = [
         drugs: "フルタイド・セレベント・アドエア",
         img: "images/diskus.png",
         videos: [
-            { title: "使い方の手順", path: "https://jasweb.or.jp/video/movie/4_Diskus_ver2.mp4" }
+            { title: "使い方の手順", path: "videos/diskus.mp4" }
         ]
     },
     {
@@ -446,7 +483,7 @@ const inhalerData = [
         drugs: "フルティフォーム・ビレーズトリ<br>ビベスピ 他",
         img: "images/pmdi.png",
         videos: [
-            { title: "使い方の手順", path: "https://jasweb.or.jp/video/movie/1A_Aerosol_body_ver2.mp4" }
+            { title: "使い方の手順", path: "videos/pmdi.mp4" }
         ]
     },
     {
@@ -455,8 +492,8 @@ const inhalerData = [
         drugs: "シムビコート",
         img: "images/turbuhaler_symbicort.png",
         videos: [
-            { title: "前準備あり", path: "https://jasweb.or.jp/video/movie/6A_Symbicort_Turbuhaler_ver2.mp4" },
-            { title: "毎日の吸入のみ", path: "https://jasweb.or.jp/video/movie/6A_Symbicort_Turbuhaler_ver2_short.mp4" }
+            { title: "前準備あり", path: "videos/turbuhaler_symbicort.mp4" },
+            { title: "毎日の吸入のみ", path: "videos/turbuhaler_symbicort_short.mp4" }
         ]
     },
 
@@ -466,8 +503,8 @@ const inhalerData = [
         drugs: "スピリーバ・スピオルト",
         img: "images/respimat.png",
         videos: [
-            { title: "前準備あり", path: "https://jasweb.or.jp/video/movie/2_Respimat_ver2.mp4" },
-            { title: "毎日の吸入のみ", path: "https://jasweb.or.jp/video/movie/2_Respimat_Short_ver2.mp4" }
+            { title: "前準備あり", path: "videos/respimat.mp4" },
+            { title: "毎日の吸入のみ", path: "videos/respimat_short.mp4" }
         ]
     },
 
@@ -477,7 +514,7 @@ const inhalerData = [
         drugs: "イナビル",
         img: "images/inavir.png",
         videos: [
-            { title: "使い方の手順", path: "https://jasweb.or.jp/video/movie/13_Inavir_ver2.mp4" }
+            { title: "使い方の手順", path: "videos/inavir.mp4" }
         ]
     },
     {
@@ -486,7 +523,7 @@ const inhalerData = [
         drugs: "吸入時のベストな舌の位置",
         img: "images/ho.png",
         videos: [
-            { title: "ホー吸入 Ver.3", path: "https://jasweb.or.jp/video/movie/HowToHoh_2023_JP_edit04_nouhin.mp4" }
+            { title: "ホー吸入 Ver.3", path: "videos/ho.mp4" }
         ]
     },
     {
@@ -495,7 +532,7 @@ const inhalerData = [
         drugs: "モメタゾン点鼻液",
         img: "images/nasonex.png",
         videos: [
-            { title: "使い方の手順", path: "https://www.kyorin-pharm.co.jp/ethical/v/nasonex/nasonex_instruction_mv.mp4" }
+            { title: "使い方の手順", path: "videos/nasonex.mp4" }
         ]
     },
     {
@@ -567,7 +604,48 @@ const deviceList = document.getElementById('deviceList');
 const videoList = document.getElementById('videoList');
 const videoPlayer = document.getElementById('videoPlayer');
 const errorMessage = document.getElementById('errorMessage');
+const loadingNotice = document.getElementById('loadingNotice');
 const breadcrumbs = document.getElementById('breadcrumbs');
+let stallTimer = null;
+
+function clearLoadingNotice() {
+    if (stallTimer) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+    }
+    loadingNotice.classList.remove('show');
+}
+
+function scheduleLoadingNotice() {
+    if (stallTimer || !currentVideo) return;
+    stallTimer = setTimeout(() => {
+        if (currentVideo && errorMessage.style.display === 'none') {
+            loadingNotice.classList.add('show');
+        }
+    }, 3000);
+}
+
+function retryVideo() {
+    if (!currentVideo) return;
+    const resumeTime = videoPlayer.currentTime || 0;
+    clearLoadingNotice();
+    errorMessage.style.display = 'none';
+    const sep = currentVideo.path.includes('?') ? '&' : '?';
+    videoPlayer.src = `${currentVideo.path}${sep}retry=${Date.now()}`;
+    videoPlayer.load();
+    if (resumeTime > 0) {
+        videoPlayer.addEventListener('loadedmetadata', function onMeta() {
+            videoPlayer.removeEventListener('loadedmetadata', onMeta);
+            try { videoPlayer.currentTime = resumeTime; } catch (_) {}
+        });
+    }
+    const playPromise = videoPlayer.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.log("再読み込み後の再生ブロック: ", error);
+        });
+    }
+}
 
 // ---------- 初期化処理 ----------
 function init() {
@@ -651,8 +729,10 @@ function selectVideo(video) {
 
     currentVideo = video;
     
-    // エラーメッセージをリセット
+    // エラーメッセージ・読み込み表示をリセット
     errorMessage.style.display = 'none';
+    clearLoadingNotice();
+    scheduleLoadingNotice();
     
     // 先に画面を表示状態にする（display:noneのままだと再生がブロックされる場合があるため）
     transitionTo(step3);
@@ -702,6 +782,7 @@ function goBackToStep2() {
 }
 
 function stopVideo() {
+    clearLoadingNotice();
     if (!videoPlayer.paused) {
         videoPlayer.pause();
     }
@@ -712,8 +793,16 @@ function stopVideo() {
 
 // ---------- イベントリスナー ----------
 
+// バッファリング・通信詰まり検知
+videoPlayer.addEventListener('waiting', scheduleLoadingNotice);
+videoPlayer.addEventListener('stalled', scheduleLoadingNotice);
+videoPlayer.addEventListener('playing', clearLoadingNotice);
+videoPlayer.addEventListener('canplay', clearLoadingNotice);
+
 // 動画読み込みエラー時
 videoPlayer.addEventListener('error', function(e) {
+    if (!currentVideo) return;
+    clearLoadingNotice();
     console.error("Video Error: ", videoPlayer.error);
     // ネットワークエラー等でファイルが見つからない・再生できない場合
     errorMessage.innerHTML = `動画ファイルが見つかりません。<br><span style="font-size:16px;">（${currentVideo ? currentVideo.path : ''} が正しいフォルダに配置されているか確認してください）</span>`;
