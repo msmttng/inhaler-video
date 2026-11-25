@@ -411,14 +411,11 @@
     <div id="step3" class="screen">
         <div id="errorMessage" class="error-message">動画ファイルが見つかりません。</div>
         <div id="loadingNotice" class="loading-notice">
-            <span>動画を読み込んでいます…</span>
+            <span id="loadingNoticeText">動画を読み込んでいます…</span>
             <button type="button" class="retry-btn" onclick="retryVideo()">再読み込み</button>
         </div>
-        <div class="video-wrapper">
-            <!-- 該当の動画を自動再生し、ネイティブコントロールを表示 -->
-            <video id="videoPlayer" controls playsinline preload="auto">
-                お使いのブラウザは動画の再生に対応していません。
-            </video>
+        <div class="video-wrapper" id="videoWrapper">
+            <!-- 再生ごとに新しい <video> 要素を生成して Android Chrome / Safari のデコーダ詰まりを防止 -->
         </div>
         <div class="btn-container">
             <button class="btn" onclick="goBackToStep2()">
@@ -602,11 +599,14 @@ const step3 = document.getElementById('step3');
 const step4 = document.getElementById('step4');
 const deviceList = document.getElementById('deviceList');
 const videoList = document.getElementById('videoList');
-const videoPlayer = document.getElementById('videoPlayer');
+const videoWrapper = document.getElementById('videoWrapper');
+let videoPlayer = null;
 const errorMessage = document.getElementById('errorMessage');
 const loadingNotice = document.getElementById('loadingNotice');
+const loadingNoticeText = document.getElementById('loadingNoticeText');
 const breadcrumbs = document.getElementById('breadcrumbs');
 let stallTimer = null;
+let autoRetried = false;
 
 function clearLoadingNotice() {
     if (stallTimer) {
@@ -619,32 +619,93 @@ function clearLoadingNotice() {
 function scheduleLoadingNotice() {
     if (stallTimer || !currentVideo) return;
     stallTimer = setTimeout(() => {
-        if (currentVideo && errorMessage.style.display === 'none') {
-            loadingNotice.classList.add('show');
+        stallTimer = null;
+        if (!currentVideo || errorMessage.style.display !== 'none') return;
+        // まだ再生開始前かつ未リトライなら、Android Chrome の Range キャッシュ詰まり回避のため1回自動リトライ
+        if (!autoRetried && videoPlayer && videoPlayer.readyState < 3) {
+            autoRetried = true;
+            retryVideo(true);
+            return;
         }
+        const rs = videoPlayer ? videoPlayer.readyState : '-';
+        const ns = videoPlayer ? videoPlayer.networkState : '-';
+        loadingNoticeText.textContent = `動画を読み込んでいます… (状態: ${rs}/${ns})`;
+        loadingNotice.classList.add('show');
     }, 3000);
 }
 
-function retryVideo() {
-    if (!currentVideo) return;
-    const resumeTime = videoPlayer.currentTime || 0;
-    clearLoadingNotice();
-    errorMessage.style.display = 'none';
-    const sep = currentVideo.path.includes('?') ? '&' : '?';
-    videoPlayer.src = `${currentVideo.path}${sep}retry=${Date.now()}`;
-    videoPlayer.load();
+function destroyVideoPlayer() {
+    if (!videoPlayer) return;
+    try {
+        videoPlayer.pause();
+        videoPlayer.removeAttribute('src');
+        videoPlayer.innerHTML = '';
+        videoPlayer.remove();
+    } catch (_) {}
+    videoPlayer = null;
+}
+
+function mountAndPlayVideo(srcUrl, resumeTime = 0) {
+    destroyVideoPlayer();
+
+    const v = document.createElement('video');
+    v.id = 'videoPlayer';
+    v.controls = true;
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', '');
+    v.preload = 'metadata';
+    v.src = srcUrl;
+
+    v.addEventListener('waiting', scheduleLoadingNotice);
+    v.addEventListener('stalled', scheduleLoadingNotice);
+    v.addEventListener('playing', clearLoadingNotice);
+    v.addEventListener('canplay', clearLoadingNotice);
+    v.addEventListener('timeupdate', function onProgress() {
+        if (v.currentTime > 0) {
+            clearLoadingNotice();
+            v.removeEventListener('timeupdate', onProgress);
+        }
+    });
+    v.addEventListener('error', function() {
+        if (!currentVideo || videoPlayer !== v) return;
+        clearLoadingNotice();
+        console.error("Video Error: ", v.error);
+        const code = v.error ? v.error.code : '';
+        errorMessage.innerHTML = `動画を再生できませんでした（コード: ${code}）。<br><span style="font-size:16px;">（${currentVideo.path}）</span>`;
+        errorMessage.style.display = 'block';
+    });
+
     if (resumeTime > 0) {
-        videoPlayer.addEventListener('loadedmetadata', function onMeta() {
-            videoPlayer.removeEventListener('loadedmetadata', onMeta);
-            try { videoPlayer.currentTime = resumeTime; } catch (_) {}
+        v.addEventListener('loadedmetadata', function onMeta() {
+            v.removeEventListener('loadedmetadata', onMeta);
+            try { v.currentTime = resumeTime; } catch (_) {}
         });
     }
-    const playPromise = videoPlayer.play();
+
+    videoWrapper.appendChild(v);
+    videoPlayer = v;
+    scheduleLoadingNotice();
+
+    // load() を明示呼び出しせず play() することで Android Chrome の競合・無限スピナーを回避
+    const playPromise = v.play();
     if (playPromise !== undefined) {
         playPromise.catch(error => {
-            console.log("再読み込み後の再生ブロック: ", error);
+            console.log("再生エラー・自動再生ブロック: ", error);
         });
     }
+}
+
+function retryVideo(isAuto = false) {
+    if (!currentVideo) return;
+    const resumeTime = (videoPlayer && videoPlayer.currentTime) ? videoPlayer.currentTime : 0;
+    clearLoadingNotice();
+    errorMessage.style.display = 'none';
+    if (!isAuto) {
+        autoRetried = true;
+    }
+    const sep = currentVideo.path.includes('?') ? '&' : '?';
+    mountAndPlayVideo(`${currentVideo.path}${sep}retry=${Date.now()}`, resumeTime);
 }
 
 // ---------- 初期化処理 ----------
@@ -728,26 +789,18 @@ function selectVideo(video) {
     }
 
     currentVideo = video;
+    autoRetried = false;
     
     // エラーメッセージ・読み込み表示をリセット
     errorMessage.style.display = 'none';
     clearLoadingNotice();
-    scheduleLoadingNotice();
     
     // 先に画面を表示状態にする（display:noneのままだと再生がブロックされる場合があるため）
     transitionTo(step3);
     updateContext('video');
     
-    // 動画のセットと再生
-    videoPlayer.src = video.path;
-    videoPlayer.load();
-    
-    const playPromise = videoPlayer.play();
-    if (playPromise !== undefined) {
-        playPromise.catch(error => {
-            console.log("再生エラー・自動再生ブロック: ", error);
-        });
-    }
+    // 毎回新しい <video> 要素を生成して再生（Android Chrome / Safari でのデコーダ詰まり防止）
+    mountAndPlayVideo(video.path, 0);
 }
 
 // ---------- ユーティリティ・画面遷移 ----------
@@ -783,31 +836,9 @@ function goBackToStep2() {
 
 function stopVideo() {
     clearLoadingNotice();
-    if (!videoPlayer.paused) {
-        videoPlayer.pause();
-    }
-    // 仕様通り、画面遷移時にsrcをクリアする
-    videoPlayer.removeAttribute('src'); 
-    videoPlayer.load();
+    autoRetried = false;
+    destroyVideoPlayer();
 }
-
-// ---------- イベントリスナー ----------
-
-// バッファリング・通信詰まり検知
-videoPlayer.addEventListener('waiting', scheduleLoadingNotice);
-videoPlayer.addEventListener('stalled', scheduleLoadingNotice);
-videoPlayer.addEventListener('playing', clearLoadingNotice);
-videoPlayer.addEventListener('canplay', clearLoadingNotice);
-
-// 動画読み込みエラー時
-videoPlayer.addEventListener('error', function(e) {
-    if (!currentVideo) return;
-    clearLoadingNotice();
-    console.error("Video Error: ", videoPlayer.error);
-    // ネットワークエラー等でファイルが見つからない・再生できない場合
-    errorMessage.innerHTML = `動画ファイルが見つかりません。<br><span style="font-size:16px;">（${currentVideo ? currentVideo.path : ''} が正しいフォルダに配置されているか確認してください）</span>`;
-    errorMessage.style.display = 'block';
-});
 
 // ---------- 設定画面ロジック ----------
 function goToSettings() {
@@ -939,7 +970,7 @@ document.addEventListener('DOMContentLoaded', init);
         ナゾネックス点鼻液 指導動画：<a href="https://www.kyorin-pharm.co.jp/" target="_blank" rel="noopener noreferrer" style="color: #0277bd;">杏林製薬株式会社</a><br>
         アラミスト点鼻液 指導動画：<a href="https://jp.gsk.com/" target="_blank" rel="noopener noreferrer" style="color: #0277bd;">グラクソ・スミスクライン株式会社（GSK）</a>
     </p>
-    <p style="margin: 12px 0 0 0; font-size: 12px; color: #78909c;">※ 各動画の著作権は提供元に帰属します。</p>
+    <p style="margin: 12px 0 0 0; font-size: 12px; color: #78909c;">※ 各動画の著作権は提供元に帰属します。（v2026.11.25-2）</p>
 </footer>
 
 </body>
